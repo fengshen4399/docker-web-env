@@ -112,9 +112,11 @@ echo "🔐 设置目录权限..."
 chmod 755 /home/app/default
 chmod 755 ./log
 
-# 创建默认的测试文件
-echo "📝 创建测试文件..."
-cat > /home/app/default/index.php << 'EOF'
+# 创建默认的测试文件（如果不存在）
+echo "📝 检查并创建测试文件..."
+if [ ! -f /home/app/default/index.php ]; then
+    echo "✓ 创建 index.php"
+    cat > /home/app/default/index.php << 'EOF'
 <?php
 echo "<h1>Hello from PHP!</h1>";
 echo "<p>This is a custom Docker environment with PHP 8.3 and Nginx.</p>";
@@ -122,12 +124,25 @@ echo "<h2>PHP Information:</h2>";
 phpinfo();
 ?>
 EOF
+else
+    echo "⚠ index.php 已存在，跳过创建"
+fi
 
-cat > /home/app/default/health.php << 'EOF'
+if [ ! -f /home/app/default/health.php ]; then
+    echo "✓ 创建 health.php"
+    cat > /home/app/default/health.php << 'EOF'
 <?php
-echo "OK";
+header('Content-Type: application/json');
+echo json_encode([
+    'status' => 'ok',
+    'timestamp' => date('Y-m-d H:i:s'),
+    'php_version' => PHP_VERSION
+]);
 ?>
 EOF
+else
+    echo "⚠ health.php 已存在，跳过创建"
+fi
 
 # 构建并启动服务
 echo "🔨 构建 Docker 镜像..."

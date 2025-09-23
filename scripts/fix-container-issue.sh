@@ -26,15 +26,22 @@ sudo mkdir -p /home/app/default
 sudo chown -R $USER:$USER /home/app/default
 sudo chmod -R 755 /home/app/default
 
-# 创建测试文件
-echo "📄 创建测试文件..."
-cat > /home/app/default/index.php << 'EOF'
+# 创建测试文件（如果不存在）
+echo "📄 检查并创建测试文件..."
+if [ ! -f /home/app/default/index.php ]; then
+    echo "✓ 创建 index.php"
+    cat > /home/app/default/index.php << 'EOF'
 <?php
 phpinfo();
 ?>
 EOF
+else
+    echo "⚠ index.php 已存在，跳过创建"
+fi
 
-cat > /home/app/default/health.php << 'EOF'
+if [ ! -f /home/app/default/health.php ]; then
+    echo "✓ 创建 health.php"
+    cat > /home/app/default/health.php << 'EOF'
 <?php
 header('Content-Type: application/json');
 echo json_encode([
@@ -44,6 +51,9 @@ echo json_encode([
 ]);
 ?>
 EOF
+else
+    echo "⚠ health.php 已存在，跳过创建"
+fi
 
 # 重新构建镜像
 echo "🔨 重新构建Docker镜像..."

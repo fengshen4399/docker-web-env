@@ -170,9 +170,12 @@ deploy_environment() {
     chmod 755 /home/app/default
     chmod 755 ./log
     
-    # 创建默认的测试文件
-    echo -e "${BLUE}📝 创建测试文件...${NC}"
-    cat > /home/app/default/index.php << 'EOF'
+    # 创建默认的测试文件（如果不存在）
+    echo -e "${BLUE}📝 检查并创建测试文件...${NC}"
+    
+    if [ ! -f /home/app/default/index.php ]; then
+        echo -e "${GREEN}✓ 创建 index.php${NC}"
+        cat > /home/app/default/index.php << 'EOF'
 <?php
 echo "<h1>Hello from PHP!</h1>";
 echo "<p>This is a custom Docker environment with PHP 8.3 and Nginx.</p>";
@@ -180,12 +183,25 @@ echo "<h2>PHP Information:</h2>";
 phpinfo();
 ?>
 EOF
+    else
+        echo -e "${YELLOW}⚠ index.php 已存在，跳过创建${NC}"
+    fi
 
-    cat > /home/app/default/health.php << 'EOF'
+    if [ ! -f /home/app/default/health.php ]; then
+        echo -e "${GREEN}✓ 创建 health.php${NC}"
+        cat > /home/app/default/health.php << 'EOF'
 <?php
-echo "OK";
+header('Content-Type: application/json');
+echo json_encode([
+    'status' => 'ok',
+    'timestamp' => date('Y-m-d H:i:s'),
+    'php_version' => PHP_VERSION
+]);
 ?>
 EOF
+    else
+        echo -e "${YELLOW}⚠ health.php 已存在，跳过创建${NC}"
+    fi
     
     # 构建并启动服务
     echo -e "${BLUE}🔨 构建 Docker 镜像...${NC}"
