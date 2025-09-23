@@ -3,12 +3,13 @@ services:
     build:
       context: .
       dockerfile: ./build/Dockerfile
-    container_name: my_web
+    container_name: my_web_fixed
     ports:
       - "80:80"
       - "9000:9000"
     restart: always
     working_dir: /www
+    user: "1000:1000"  # 使用非root用户
     volumes:
       - /home/app/default:/www/
       - ./conf/php.ini:/usr/local/etc/php/php.ini
@@ -29,6 +30,16 @@ services:
       start_period: 40s
     security_opt:
       - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    read_only: false
+    tmpfs:
+      - /tmp
+      - /var/tmp
 
 networks:
   default:

@@ -79,6 +79,9 @@ RUN mkdir -p /etc/nginx/conf.d
 # 设置工作目录
 WORKDIR /www
 
+# 确保工作目录存在且权限正确
+RUN mkdir -p /www && chown -R www-data:www-data /www
+
 # 复制配置文件
 COPY conf/php.ini /usr/local/etc/php/php.ini
 COPY conf/php-fpm.conf /usr/local/etc/php-fpm.conf
