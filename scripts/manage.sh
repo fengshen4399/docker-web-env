@@ -30,6 +30,7 @@ show_help() {
     echo "  shell      - 进入容器"
     echo "  test       - 测试服务"
     echo "  clean      - 清理资源"
+    echo "  fix-perms  - 修复权限"
     echo "  help       - 显示帮助"
 }
 
@@ -153,6 +154,48 @@ clean_resources() {
     echo -e "${GREEN}✅ 资源清理完成${NC}"
 }
 
+# 修复权限
+fix_permissions() {
+    echo -e "${BLUE}🔧 修复应用目录权限...${NC}"
+    
+    # 创建应用运行时目录（如果不存在）
+    echo -e "${YELLOW}📁 检查应用目录...${NC}"
+    if [ ! -d "/home/app/default/runtime" ]; then
+        echo -e "${YELLOW}创建 runtime 目录...${NC}"
+        sudo mkdir -p /home/app/default/runtime/logs
+        sudo mkdir -p /home/app/default/runtime/cache
+        sudo mkdir -p /home/app/default/runtime/temp
+    else
+        echo -e "${GREEN}✓ runtime 目录已存在${NC}"
+        # 确保子目录存在
+        sudo mkdir -p /home/app/default/runtime/logs
+        sudo mkdir -p /home/app/default/runtime/cache
+        sudo mkdir -p /home/app/default/runtime/temp
+    fi
+    
+    # 设置目录权限
+    echo -e "${YELLOW}🔐 设置目录权限...${NC}"
+    sudo chown -R www-data:www-data /home/app/default
+    sudo chmod -R 755 /home/app/default
+    
+    # 设置运行时目录为可写
+    sudo chmod -R 777 /home/app/default/runtime
+    
+    # 测试权限
+    echo -e "${YELLOW}🧪 测试权限...${NC}"
+    if sudo -u www-data touch /home/app/default/runtime/logs/test.log 2>/dev/null; then
+        echo -e "${GREEN}✅ 应用日志目录权限正常${NC}"
+        sudo rm -f /home/app/default/runtime/logs/test.log
+    else
+        echo -e "${RED}❌ 应用日志目录权限有问题${NC}"
+        echo -e "${YELLOW}💡 提示: 请检查容器内的用户配置${NC}"
+    fi
+    
+    echo -e "${GREEN}✅ 权限修复完成${NC}"
+    echo -e "${BLUE}📁 应用目录: /home/app/default${NC}"
+    echo -e "${BLUE}📁 运行时目录: /home/app/default/runtime${NC}"
+}
+
 # 主函数
 main() {
     case "${1:-help}" in
@@ -191,6 +234,9 @@ main() {
             ;;
         clean)
             clean_resources
+            ;;
+        fix-perms)
+            fix_permissions
             ;;
         help|--help|-h)
             show_help

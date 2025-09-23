@@ -113,22 +113,22 @@ clean_resources() {
 # 服务管理
 restart_nginx() {
     echo -e "${BLUE}🔄 重启 Nginx...${NC}"
-    ./manage.sh nginx
+    ./scripts/manage.sh nginx
 }
 
 restart_php() {
     echo -e "${BLUE}🔄 重启 PHP-FPM...${NC}"
-    ./manage.sh php
+    ./scripts/manage.sh php
 }
 
 reload_config() {
     echo -e "${BLUE}🔄 重新加载配置...${NC}"
-    ./manage.sh reload
+    ./scripts/manage.sh reload
 }
 
 rebuild_service() {
     echo -e "${BLUE}🔨 重新构建...${NC}"
-    ./manage.sh build
+    ./scripts/manage.sh build
 }
 
 # 配置管理
