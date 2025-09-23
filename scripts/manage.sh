@@ -167,11 +167,16 @@ fix_permissions() {
         sudo mkdir -p /home/app/default/runtime/temp
     else
         echo -e "${GREEN}✓ runtime 目录已存在${NC}"
-        # 确保子目录存在
-        sudo mkdir -p /home/app/default/runtime/logs
-        sudo mkdir -p /home/app/default/runtime/cache
-        sudo mkdir -p /home/app/default/runtime/temp
     fi
+    
+    # 创建 ThinkPHP 完整目录结构
+    echo -e "${YELLOW}📁 创建 ThinkPHP 目录结构...${NC}"
+    sudo mkdir -p /home/app/default/runtime/log
+    sudo mkdir -p /home/app/default/runtime/cache
+    sudo mkdir -p /home/app/default/runtime/temp
+    sudo mkdir -p /home/app/default/runtime/session
+    sudo mkdir -p /home/app/default/runtime/compile
+    sudo mkdir -p /home/app/default/runtime/logs
     
     # 设置目录权限
     echo -e "${YELLOW}🔐 设置目录权限...${NC}"
