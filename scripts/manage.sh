@@ -31,8 +31,10 @@ show_help() {
     echo "  test       - 测试服务"
     echo "  clean      - 清理资源"
     echo "  fix-perms  - 修复权限"
-    echo "  daemon     - 守护进程管理"
+    echo "  daemon     - 守护进程管理 (容器内supervisor进程)"
     echo "  queue      - 重启所有队列进程"
+    echo "  supervisor - 显示supervisor状态"
+    echo "  processes  - 显示容器内所有进程"
     echo "  help       - 显示帮助"
 }
 
@@ -158,12 +160,29 @@ clean_resources() {
 
 # 守护进程管理
 daemon_management() {
-    echo -e "${BLUE}🔧 守护进程管理${NC}"
-    echo "=================================="
+    echo -e "${BLUE}🔧 容器守护进程管理 (${GREEN}my_web${BLUE})${NC}"
+    echo "=========================================="
+    
+    if [ $# -eq 0 ]; then
+        echo "守护进程管理选项:"
+        echo "  -s, --status     显示所有进程状态"
+        echo "  -a, --all        重启所有进程"
+        echo "  -q, --queue      重启队列进程"
+        echo "  -w, --web        重启Web服务"
+        echo "  -r <name>        重启指定进程"
+        echo "  -f <name>        强制重启指定进程"
+        echo "  -h, --help       显示帮助"
+        echo ""
+        echo "示例:"
+        echo "  $0 daemon -s          显示进程状态"
+        echo "  $0 daemon -r nginx     重启nginx"
+        echo "  $0 daemon -q           重启所有队列"
+        return
+    fi
     
     # 调用专门的守护进程重启脚本
     if [ -f "/home/docker-web-env/scripts/restart-daemon.sh" ]; then
-        /home/docker-web-env/scripts/restart-daemon.sh "$@"
+        bash /home/docker-web-env/scripts/restart-daemon.sh "$@"
     else
         echo -e "${RED}❌ 守护进程重启脚本不存在${NC}"
         echo "请确保 /home/docker-web-env/scripts/restart-daemon.sh 文件存在"
@@ -280,6 +299,18 @@ main() {
             ;;
         queue)
             restart_queues
+            ;;
+        supervisor)
+            echo -e "${BLUE}📊 Supervisor 进程状态 (容器: my_web):${NC}"
+            if [ -f "/home/docker-web-env/scripts/restart-daemon.sh" ]; then
+                bash /home/docker-web-env/scripts/restart-daemon.sh -s
+            else
+                echo -e "${RED}❌ 守护进程脚本不存在${NC}"
+            fi
+            ;;
+        processes)
+            echo -e "${BLUE}📊 容器内所有进程:${NC}"
+            sudo docker exec my_web supervisorctl status 2>/dev/null || echo -e "${RED}❌ 无法连接到容器${NC}"
             ;;
         help|--help|-h)
             show_help

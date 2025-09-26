@@ -203,6 +203,21 @@ EOF
         echo -e "${YELLOW}⚠ health.php 已存在，跳过创建${NC}"
     fi
     
+    # 设置系统时区为中国
+    echo -e "${BLUE}🕐 设置系统时区为中国...${NC}"
+    if command -v timedatectl &> /dev/null; then
+        sudo timedatectl set-timezone Asia/Shanghai
+        echo -e "${GREEN}✓ 系统时区已设置为 Asia/Shanghai${NC}"
+    else
+        # 备用方法
+        sudo ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+        echo "Asia/Shanghai" | sudo tee /etc/timezone > /dev/null
+        echo -e "${GREEN}✓ 系统时区已设置为 Asia/Shanghai (备用方法)${NC}"
+    fi
+    
+    # 显示当前时间
+    echo -e "${BLUE}📅 当前时间: $(date)${NC}"
+    
     # 构建并启动服务
     echo -e "${BLUE}🔨 构建 Docker 镜像...${NC}"
     docker compose build

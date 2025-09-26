@@ -2,7 +2,10 @@
 
 # 重启守护进程脚本
 # 作者: Docker Web Environment
-# 功能: 提供重启supervisor管理的守护进程的功能
+# 功能: 提供重启supervisor管理的守护进程的功能（支持Docker容器）
+
+# 容器配置
+CONTAINER_NAME="my_web"
 
 # 颜色定义
 RED="\033[0;31m"
@@ -28,20 +31,40 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# 检查supervisor是否运行
-check_supervisor() {
-    if ! pgrep -f supervisord > /dev/null; then
-        log_error "Supervisor 未运行，请先启动 supervisord"
+# 检查容器是否运行的函数
+check_container() {
+    if ! sudo docker ps --format "table {{.Names}}" | grep -q "^${CONTAINER_NAME}$"; then
+        echo "错误: 容器 ${CONTAINER_NAME} 未运行"
+        echo "请先启动容器: docker-compose up -d"
         return 1
     fi
     return 0
 }
 
+# 检查容器内supervisor是否运行
+check_supervisor() {
+    if ! check_container; then
+        return 1
+    fi
+    
+    if ! supervisorctl_exec status > /dev/null 2>&1; then
+        log_error "容器内 Supervisor 未运行，请先启动 supervisord"
+        return 1
+    fi
+    return 0
+}
+
+# 执行容器内supervisorctl命令
+# 在容器中执行supervisorctl命令的包装函数
+supervisorctl_exec() {
+    sudo docker exec "${CONTAINER_NAME}" supervisorctl "$@"
+}
+
 # 显示所有守护进程状态
 show_status() {
-    log_info "当前守护进程状态:"
+    log_info "当前守护进程状态 (容器: ${CONTAINER_NAME}):"
     echo "=================================="
-    supervisorctl status
+    supervisorctl_exec status
     echo "=================================="
 }
 
@@ -57,18 +80,18 @@ restart_daemon() {
     log_info "正在重启守护进程: $daemon_name"
     
     # 检查进程是否存在
-    if ! supervisorctl status "$daemon_name" &>/dev/null; then
+    if ! supervisorctl_exec status "$daemon_name" &>/dev/null; then
         log_error "守护进程 '$daemon_name' 不存在"
         return 1
     fi
     
     # 重启进程
-    if supervisorctl restart "$daemon_name"; then
+    if supervisorctl_exec restart "$daemon_name"; then
         log_success "守护进程 '$daemon_name' 重启成功"
         
         # 等待3秒后检查状态
         sleep 3
-        local status=$(supervisorctl status "$daemon_name" | awk '{print $2}')
+        local status=$(supervisorctl_exec status "$daemon_name" | awk '{print $2}')
         if [ "$status" = "RUNNING" ]; then
             log_success "守护进程 '$daemon_name' 运行正常"
         else
@@ -82,9 +105,9 @@ restart_daemon() {
 
 # 重启所有守护进程
 restart_all() {
-    log_info "正在重启所有守护进程..."
+    log_info "正在重启所有守护进程 (容器: ${CONTAINER_NAME})..."
     
-    if supervisorctl restart all; then
+    if supervisorctl_exec restart all; then
         log_success "所有守护进程重启完成"
         sleep 5
         show_status
@@ -98,10 +121,10 @@ restart_all() {
 restart_queue_workers() {
     log_info "正在重启所有队列工作进程..."
     
-    local queue_processes=("default" "order_notify" "order_query" "usdt_transfer")
+    local queue_processes=("default:*" "order_notify:*" "order_query:*" "usdt_transfer:*")
     
     for process in "${queue_processes[@]}"; do
-        if supervisorctl status "$process" &>/dev/null; then
+        if supervisorctl_exec status "$process" &>/dev/null; then
             restart_daemon "$process"
         else
             log_warning "队列进程 '$process' 未配置或不存在"
@@ -116,7 +139,7 @@ restart_web_services() {
     local web_services=("nginx" "php-fpm")
     
     for service in "${web_services[@]}"; do
-        if supervisorctl status "$service" &>/dev/null; then
+        if supervisorctl_exec status "$service" &>/dev/null; then
             restart_daemon "$service"
         else
             log_warning "Web服务 '$service' 未配置或不存在"
@@ -136,11 +159,11 @@ force_restart() {
     log_warning "正在强制重启守护进程: $daemon_name"
     
     # 先停止
-    supervisorctl stop "$daemon_name"
+    supervisorctl_exec stop "$daemon_name"
     sleep 2
     
     # 再启动
-    if supervisorctl start "$daemon_name"; then
+    if supervisorctl_exec start "$daemon_name"; then
         log_success "守护进程 '$daemon_name' 强制重启成功"
     else
         log_error "强制重启守护进程 '$daemon_name' 失败"
@@ -150,7 +173,8 @@ force_restart() {
 
 # 显示帮助信息
 show_help() {
-    echo "守护进程重启脚本"
+    echo "Docker容器守护进程重启脚本"
+    echo "目标容器: ${CONTAINER_NAME}"
     echo ""
     echo "用法: $0 [选项] [进程名]"
     echo ""
@@ -163,20 +187,20 @@ show_help() {
     echo "  -f, --force <进程名>     强制重启指定进程"
     echo "  -r, --restart <进程名>   重启指定进程"
     echo ""
-    echo "可用的守护进程:"
-    echo "  - nginx              Web服务器"
-    echo "  - php-fpm           PHP-FPM进程管理器"
-    echo "  - default           默认队列工作进程"
-    echo "  - order_notify      订单通知队列进程"
-    echo "  - order_query       订单查询队列进程"
-    echo "  - usdt_transfer     USDT转账队列进程"
+    echo ""
+    echo "容器中可用进程:"
+    echo "  nginx               Nginx Web服务器"
+    echo "  php-fpm             PHP-FPM进程管理器"
+    echo "  default             默认队列工作进程"
+    echo "  order_notify        订单通知进程"
+    echo "  order_query         订单查询进程"
+    echo "  usdt_transfer       USDT转账进程"
     echo ""
     echo "示例:"
-    echo "  $0 --status                    # 查看所有进程状态"
-    echo "  $0 --restart nginx             # 重启nginx"
-    echo "  $0 --queue                     # 重启所有队列进程"
-    echo "  $0 --all                       # 重启所有进程"
-    echo "  $0 --force order_notify        # 强制重启订单通知进程"
+    echo "  $0 -s                   显示所有进程状态"
+    echo "  $0 -a                   重启所有进程"
+    echo "  $0 -r nginx             重启nginx进程"
+    echo "  $0 -f default           强制重启default队列进程"
 }
 
 # 主函数

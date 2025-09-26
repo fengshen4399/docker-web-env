@@ -62,6 +62,12 @@ show_help() {
     echo "  one       - 一键部署"
     echo "  aliases   - 加载快捷别名"
     echo ""
+    echo -e "${PURPLE}⚙️  守护进程管理:${NC}"
+    echo "  daemon    - 守护进程管理菜单"
+    echo "  queue     - 重启队列进程"
+    echo "  supervisor - 显示进程状态"
+    echo "  restart-all - 重启所有进程"
+    echo ""
     echo -e "${BLUE}💡 示例:${NC}"
     echo "  ./web.sh start      # 启动服务"
     echo "  ./web.sh nginx      # 重启 Nginx"
@@ -196,6 +202,64 @@ load_aliases() {
     source ./aliases.sh
 }
 
+# 守护进程管理菜单
+daemon_menu() {
+    echo -e "${PURPLE}⚙️  守护进程管理菜单${NC}"
+    echo "============================="
+    echo "1) 显示进程状态"
+    echo "2) 重启所有进程"
+    echo "3) 重启队列进程"
+    echo "4) 重启Web服务"
+    echo "5) 重启指定进程"
+    echo "6) 返回主菜单"
+    echo ""
+    read -p "请选择操作 (1-6): " daemon_choice
+    
+    case $daemon_choice in
+        1)
+            ./scripts/manage.sh daemon -s
+            ;;
+        2)
+            ./scripts/manage.sh daemon -a
+            ;;
+        3)
+            ./scripts/manage.sh daemon -q
+            ;;
+        4)
+            ./scripts/manage.sh daemon -w
+            ;;
+        5)
+            echo "可用进程: nginx, php-fpm, default:*, order_notify:*, order_query:*, usdt_transfer:*"
+            read -p "请输入进程名: " process_name
+            ./scripts/manage.sh daemon -r "$process_name"
+            ;;
+        6)
+            return
+            ;;
+        *)
+            echo -e "${RED}❌ 无效选择${NC}"
+            ;;
+    esac
+}
+
+# 重启队列进程
+restart_queues() {
+    echo -e "${BLUE}🔄 重启队列进程...${NC}"
+    ./scripts/manage.sh daemon -q
+}
+
+# 显示supervisor状态
+show_supervisor() {
+    echo -e "${BLUE}📊 Supervisor 状态...${NC}"
+    ./scripts/manage.sh daemon -s
+}
+
+# 重启所有守护进程
+restart_all_daemons() {
+    echo -e "${BLUE}🔄 重启所有守护进程...${NC}"
+    ./scripts/manage.sh daemon -a
+}
+
 # 主函数
 main() {
     case "${1:-help}" in
@@ -267,6 +331,18 @@ main() {
             ;;
         aliases)
             load_aliases
+            ;;
+        daemon)
+            daemon_menu
+            ;;
+        queue)
+            restart_queues
+            ;;
+        supervisor)
+            show_supervisor
+            ;;
+        restart-all)
+            restart_all_daemons
             ;;
         help|--help|-h)
             show_help
