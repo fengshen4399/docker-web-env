@@ -5,8 +5,12 @@
 
 cd /www
 
-# 日志文件
-LOG_FILE="/var/log/crontasks/settlement.log"
+# 日志文件（按日期分离）
+LOG_DIR="/var/log/crontasks/$(date +%Y)/$(date +%m)"
+LOG_FILE="$LOG_DIR/settlement-$(date +%Y%m%d).log"
+
+# 确保日志目录存在
+mkdir -p "$LOG_DIR"
 
 # 记录开始时间
 echo "========================================" >> "$LOG_FILE"
