@@ -26,6 +26,7 @@ show_help() {
     echo "  nginx      - 重启 Nginx"
     echo "  php        - 重启 PHP-FPM"
     echo "  reload     - 重新加载配置"
+    echo "  cron       - 重新加载定时任务"
     echo "  build      - 重新构建镜像"
     echo "  shell      - 进入容器"
     echo "  test       - 测试服务"
@@ -94,6 +95,32 @@ reload_config() {
     docker compose exec web nginx -s reload
     docker compose exec web supervisorctl restart php-fpm
     echo -e "${GREEN}✅ 配置重新加载完成${NC}"
+}
+
+# 重新加载定时任务
+reload_cron() {
+    echo -e "${BLUE}🔄 重新加载定时任务...${NC}"
+    
+    # 检查配置文件是否存在
+    if [ ! -f "crontab-template.conf" ]; then
+        echo -e "${RED}❌ 配置文件 crontab-template.conf 不存在${NC}"
+        return 1
+    fi
+    
+    # 显示即将加载的配置
+    echo -e "${YELLOW}📋 即将加载的定时任务配置:${NC}"
+    grep -v "^#" crontab-template.conf | grep -v "^$" || echo "无有效任务配置"
+    echo ""
+    
+    # 重新加载定时任务
+    echo -e "${BLUE}🔄 重载容器内定时任务...${NC}"
+    sudo docker exec my_web cron-manager reload
+    
+    echo -e "${GREEN}✅ 定时任务重新加载完成${NC}"
+    
+    # 显示当前状态
+    echo -e "${BLUE}📊 当前定时任务状态:${NC}"
+    sudo docker exec my_web cron-manager status | grep -v "^#" | grep -v "^$" || echo "无活动任务"
 }
 
 # 重新构建镜像
@@ -277,6 +304,9 @@ main() {
             ;;
         reload)
             reload_config
+            ;;
+        cron)
+            reload_cron
             ;;
         build)
             rebuild_image

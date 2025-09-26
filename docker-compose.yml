@@ -17,6 +17,9 @@ services:
       - ./supervisor/supervisord.conf:/etc/supervisor/supervisord.conf
       - ./supervisor/supervisor.d:/etc/supervisor/conf.d
       - ./log:/var/log
+      - ./crontab-template.conf:/etc/crontasks/crontab.conf
+      - ./log/crontasks:/var/log/crontasks
+      - ./scripts/cron:/usr/local/bin/cron-scripts
     environment:
       - TZ=Asia/Shanghai
     networks:

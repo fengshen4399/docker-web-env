@@ -400,14 +400,242 @@ package_deployment() {
     read
 }
 
+# 定时任务管理
+cron_management_menu() {
+    echo -e "${BLUE}⏰ 定时任务管理 (基于配置文件)${NC}"
+    echo "========================================="
+    echo "1) 查看当前任务"
+    echo "2) 编辑配置文件"
+    echo "3) 重载任务配置"
+    echo "4) 查看任务日志"
+    echo "5) 添加常用任务"
+    echo "6) 清空所有任务"
+    echo "7) 查看服务状态"
+    echo "8) 返回主菜单"
+    read -p "请选择 (1-8): " cron_choice
+    
+    case $cron_choice in
+        1)
+            echo -e "${BLUE}📋 当前定时任务:${NC}"
+            sudo docker exec my_web cron-manager status
+            ;;
+        2)
+            edit_cron_config
+            ;;
+        3)
+            echo -e "${BLUE}🔄 重载定时任务配置...${NC}"
+            sudo docker exec my_web cron-manager reload
+            echo -e "${GREEN}✓ 配置重载完成${NC}"
+            ;;
+        4)
+            view_cron_logs
+            ;;
+        5)
+            add_common_tasks
+            ;;
+        6)
+            echo -e "${YELLOW}⚠️ 确定要清空所有定时任务吗？${NC}"
+            read -p "输入 'yes' 确认: " confirm
+            if [ "$confirm" = "yes" ]; then
+                sudo docker exec my_web crontab -r
+                echo -e "${GREEN}✓ 所有定时任务已清空${NC}"
+            fi
+            ;;
+        7)
+            echo -e "${BLUE}📊 Cron服务状态:${NC}"
+            sudo docker exec my_web supervisorctl status cron
+            echo -e "${BLUE}📊 当前系统时间:${NC}"
+            sudo docker exec my_web date
+            ;;
+        8)
+            return
+            ;;
+        *)
+            echo -e "${RED}无效选择${NC}"
+            ;;
+    esac
+    
+    echo -e "${BLUE}按 Enter 继续...${NC}"
+    read
+}
+
+# 编辑定时任务配置文件
+edit_cron_config() {
+    echo -e "${BLUE}📝 编辑定时任务配置文件${NC}"
+    echo -e "${YELLOW}配置文件路径: /etc/crontasks/crontab.conf${NC}"
+    echo ""
+    echo "当前配置内容:"
+    sudo docker exec my_web cat /etc/crontasks/crontab.conf
+    echo ""
+    echo -e "${BLUE}选择操作:${NC}"
+    echo "1) 查看配置示例"
+    echo "2) 添加新任务到配置文件"
+    echo "3) 返回"
+    read -p "请选择: " edit_choice
+    
+    case $edit_choice in
+        1)
+            show_cron_examples
+            ;;
+        2)
+            add_task_to_config
+            ;;
+        3)
+            return
+            ;;
+    esac
+}
+
+# 显示定时任务配置示例
+show_cron_examples() {
+    echo -e "${BLUE}📖 定时任务配置示例:${NC}"
+    echo ""
+    echo "# 每5分钟执行一次"
+    echo "*/5 * * * * echo \"每5分钟执行\" >> /var/log/crontasks/test.log 2>&1"
+    echo ""
+    echo "# 每天凌晨2点执行"
+    echo "0 2 * * * cd /www && php backup.php >> /var/log/crontasks/backup.log 2>&1"
+    echo ""
+    echo "# 每周日凌晨3点清理日志"
+    echo "0 3 * * 0 find /var/log/crontasks -name \"*.log\" -mtime +7 -delete"
+    echo ""
+    echo "# 每小时检查系统状态"
+    echo "0 * * * * df -h > /var/log/crontasks/diskusage.log 2>&1"
+    echo ""
+    echo -e "${YELLOW}格式说明: 分(0-59) 时(0-23) 日(1-31) 月(1-12) 周(0-7)${NC}"
+}
+
+# 添加任务到配置文件
+add_task_to_config() {
+    echo -e "${BLUE}➕ 添加新任务到配置文件${NC}"
+    echo "选择任务类型:"
+    echo "1) PHP脚本执行"
+    echo "2) 系统命令"
+    echo "3) 日志清理"
+    echo "4) 数据备份"
+    echo "5) 自定义任务"
+    read -p "请选择: " task_type
+    
+    case $task_type in
+        1)
+            read -p "PHP脚本路径 (相对于/www): " php_script
+            read -p "执行时间 (cron格式): " cron_time
+            task_line="$cron_time cd /www && php $php_script >> /var/log/crontasks/php_${php_script//\//_}.log 2>&1"
+            ;;
+        2)
+            read -p "系统命令: " sys_cmd
+            read -p "执行时间 (cron格式): " cron_time
+            read -p "日志文件名: " log_name
+            task_line="$cron_time $sys_cmd >> /var/log/crontasks/$log_name.log 2>&1"
+            ;;
+        3)
+            read -p "执行时间 (cron格式, 建议: 0 3 * * 0): " cron_time
+            read -p "保留天数 (默认7天): " keep_days
+            keep_days=${keep_days:-7}
+            task_line="$cron_time find /var/log/crontasks -name \"*.log\" -mtime +$keep_days -delete"
+            ;;
+        4)
+            read -p "备份路径 (相对于/www): " backup_path
+            read -p "执行时间 (cron格式): " cron_time
+            task_line="$cron_time cd /www && tar -czf /var/log/crontasks/backup_\$(date +%Y%m%d_%H%M%S).tar.gz $backup_path >> /var/log/crontasks/backup.log 2>&1"
+            ;;
+        5)
+            read -p "自定义命令: " custom_cmd
+            read -p "执行时间 (cron格式): " cron_time
+            read -p "日志文件名: " log_name
+            task_line="$cron_time $custom_cmd >> /var/log/crontasks/$log_name.log 2>&1"
+            ;;
+        *)
+            echo -e "${RED}无效选择${NC}"
+            return
+            ;;
+    esac
+    
+    # 添加任务注释和内容到配置文件
+    echo -e "${BLUE}添加任务到配置文件...${NC}"
+    sudo docker exec my_web bash -c "echo '# 添加于 $(date)' >> /etc/crontasks/crontab.conf"
+    sudo docker exec my_web bash -c "echo '$task_line' >> /etc/crontasks/crontab.conf"
+    sudo docker exec my_web bash -c "echo '' >> /etc/crontasks/crontab.conf"
+    
+    echo -e "${GREEN}✓ 任务已添加到配置文件${NC}"
+    echo -e "${YELLOW}⚠️ 请运行 '重载任务配置' 使配置生效${NC}"
+}
+
+# 查看定时任务日志
+view_cron_logs() {
+    echo -e "${BLUE}📋 定时任务日志${NC}"
+    
+    # 列出日志文件
+    echo -e "${YELLOW}可用日志文件:${NC}"
+    sudo docker exec my_web ls -la /var/log/crontasks/ 2>/dev/null || echo "暂无日志文件"
+    
+    echo ""
+    read -p "请输入日志文件名 (不含路径，回车查看所有): " log_file
+    
+    if [ -z "$log_file" ]; then
+        echo -e "${BLUE}📄 所有日志文件概览:${NC}"
+        sudo docker exec my_web find /var/log/crontasks -name "*.log" -exec basename {} \; | while read file; do
+            echo -e "${CYAN}=== $file (最后10行) ===${NC}"
+            sudo docker exec my_web tail -10 "/var/log/crontasks/$file" 2>/dev/null || echo "无法读取"
+            echo ""
+        done
+    else
+        echo -e "${BLUE}📄 $log_file 内容 (最后50行):${NC}"
+        sudo docker exec my_web tail -50 "/var/log/crontasks/$log_file" 2>/dev/null || echo "日志文件不存在"
+    fi
+}
+
+# 添加常用任务
+add_common_tasks() {
+    echo -e "${BLUE}🚀 添加常用定时任务${NC}"
+    echo "选择要添加的常用任务:"
+    echo "1) 每5分钟系统健康检查"
+    echo "2) 每天凌晨2点日志清理"
+    echo "3) 每小时磁盘使用监控"
+    echo "4) 每天凌晨3点数据备份"
+    echo "5) 返回"
+    read -p "请选择: " common_choice
+    
+    case $common_choice in
+        1)
+            task="*/5 * * * * echo \"\$(date): System OK\" >> /var/log/crontasks/health.log 2>&1"
+            ;;
+        2)
+            task="0 2 * * * find /var/log/crontasks -name \"*.log\" -mtime +7 -delete"
+            ;;
+        3)
+            task="0 * * * * df -h > /var/log/crontasks/diskusage.log 2>&1"
+            ;;
+        4)
+            task="0 3 * * * cd /www && tar -czf /var/log/crontasks/backup_\$(date +%Y%m%d).tar.gz . >> /var/log/crontasks/backup.log 2>&1"
+            ;;
+        5)
+            return
+            ;;
+        *)
+            echo -e "${RED}无效选择${NC}"
+            return
+            ;;
+    esac
+    
+    # 添加到配置文件
+    sudo docker exec my_web bash -c "echo '# 常用任务 - 添加于 $(date)' >> /etc/crontasks/crontab.conf"
+    sudo docker exec my_web bash -c "echo '$task' >> /etc/crontasks/crontab.conf"
+    sudo docker exec my_web bash -c "echo '' >> /etc/crontasks/crontab.conf"
+    
+    echo -e "${GREEN}✓ 常用任务已添加到配置文件${NC}"
+    echo -e "${YELLOW}⚠️ 请运行 '重载任务配置' 使配置生效${NC}"
+}
+
 # 管理工具
 manage_tools() {
     echo -e "${BLUE}🛠️  管理工具:${NC}"
     echo "1) 安装快捷别名"
     echo "2) 清理 Docker 资源"
     echo "3) 查看系统信息"
-    echo "4) 返回主菜单"
-    read -p "请选择 (1-4): " tool_choice
+    echo "4) 定时任务管理"
+    echo "5) 返回主菜单"
+    read -p "请选择 (1-5): " tool_choice
     
     case $tool_choice in
         1)
@@ -428,6 +656,9 @@ manage_tools() {
             echo "内存使用: $(free -h)"
             ;;
         4)
+            cron_management_menu
+            ;;
+        5)
             return
             ;;
         *)
