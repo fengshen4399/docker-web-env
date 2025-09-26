@@ -1,14 +1,12 @@
 #!/bin/bash
 # 综合监控脚本 - 包含支付、渠道、预付费、商户余额监控
 # 执行时间: 每5分钟
-# 日志位置: /var/log/crontasks/comprehensive_monitor.log
+# 日志位置: /var/log/crontasks/monitor.log
 
-# 设置脚本执行环境
-set -e  # 遇到错误立即退出
 cd /www
 
 # 日志文件
-LOG_FILE="/var/log/crontasks/comprehensive_monitor.log"
+LOG_FILE="/var/log/crontasks/monitor.log"
 
 # 记录开始时间
 echo "========================================" >> "$LOG_FILE"

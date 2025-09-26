@@ -1,0 +1,41 @@
+#!/bin/bash
+# 每日结算脚本
+# 执行时间: 每日凌晨0点1分
+# 日志位置: /var/log/crontasks/settlement.log
+
+cd /www
+
+# 日志文件
+LOG_FILE="/var/log/crontasks/settlement.log"
+
+# 记录开始时间
+echo "========================================" >> "$LOG_FILE"
+echo "$(date): 开始每日结算任务" >> "$LOG_FILE"
+
+# 商户结算
+echo "$(date): 执行商户结算..." >> "$LOG_FILE"
+if php think merchant:settlement >> "$LOG_FILE" 2>&1; then
+    echo "$(date): 商户结算完成" >> "$LOG_FILE"
+else
+    echo "$(date): 商户结算失败" >> "$LOG_FILE"
+fi
+
+# 商户转账
+echo "$(date): 执行商户转账..." >> "$LOG_FILE"
+if php think merchant:transfer >> "$LOG_FILE" 2>&1; then
+    echo "$(date): 商户转账完成" >> "$LOG_FILE"
+else
+    echo "$(date): 商户转账失败" >> "$LOG_FILE"
+fi
+
+# 渠道结算
+echo "$(date): 执行渠道结算..." >> "$LOG_FILE"
+if php think channel:settlement >> "$LOG_FILE" 2>&1; then
+    echo "$(date): 渠道结算完成" >> "$LOG_FILE"
+else
+    echo "$(date): 渠道结算失败" >> "$LOG_FILE"
+fi
+
+# 记录结束时间
+echo "$(date): 每日结算任务完成" >> "$LOG_FILE"
+echo "========================================" >> "$LOG_FILE"
