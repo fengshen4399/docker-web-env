@@ -167,19 +167,8 @@ deploy_environment() {
     
     # 设置目录权限
     echo -e "${BLUE}🔐 设置目录权限...${NC}"
-    chmod 755 /home/app/default
+    chmod 777 /home/app/default
     chmod 755 ./log
-    
-    # 创建并设置应用日志目录权限
-    echo -e "${BLUE}📁 创建应用日志目录...${NC}"
-    mkdir -p /home/app/default/runtime/logs
-    mkdir -p /home/app/default/runtime/cache
-    mkdir -p /home/app/default/runtime/temp
-    chown -R www-data:www-data /home/app/default/runtime
-    chmod -R 755 /home/app/default/runtime
-    chmod -R 777 /home/app/default/runtime/logs
-    chmod -R 777 /home/app/default/runtime/cache
-    chmod -R 777 /home/app/default/runtime/temp
     
     # 创建默认的测试文件（如果不存在）
     echo -e "${BLUE}📝 检查并创建测试文件...${NC}"

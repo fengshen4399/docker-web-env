@@ -31,6 +31,8 @@ show_help() {
     echo "  test       - 测试服务"
     echo "  clean      - 清理资源"
     echo "  fix-perms  - 修复权限"
+    echo "  daemon     - 守护进程管理"
+    echo "  queue      - 重启所有队列进程"
     echo "  help       - 显示帮助"
 }
 
@@ -154,6 +156,35 @@ clean_resources() {
     echo -e "${GREEN}✅ 资源清理完成${NC}"
 }
 
+# 守护进程管理
+daemon_management() {
+    echo -e "${BLUE}🔧 守护进程管理${NC}"
+    echo "=================================="
+    
+    # 调用专门的守护进程重启脚本
+    if [ -f "/home/docker-web-env/scripts/restart-daemon.sh" ]; then
+        /home/docker-web-env/scripts/restart-daemon.sh "$@"
+    else
+        echo -e "${RED}❌ 守护进程重启脚本不存在${NC}"
+        echo "请确保 /home/docker-web-env/scripts/restart-daemon.sh 文件存在"
+        exit 1
+    fi
+}
+
+# 重启队列进程
+restart_queues() {
+    echo -e "${BLUE}🔄 重启所有队列进程...${NC}"
+    
+    # 调用专门的守护进程重启脚本重启队列
+    if [ -f "/home/docker-web-env/scripts/restart-daemon.sh" ]; then
+        /home/docker-web-env/scripts/restart-daemon.sh --queue
+    else
+        echo -e "${RED}❌ 守护进程重启脚本不存在${NC}"
+        echo "请确保 /home/docker-web-env/scripts/restart-daemon.sh 文件存在"
+        exit 1
+    fi
+}
+
 # 修复权限
 fix_permissions() {
     echo -e "${BLUE}🔧 修复应用目录权限...${NC}"
@@ -242,6 +273,13 @@ main() {
             ;;
         fix-perms)
             fix_permissions
+            ;;
+        daemon)
+            shift  # 移除 daemon 参数
+            daemon_management "$@"
+            ;;
+        queue)
+            restart_queues
             ;;
         help|--help|-h)
             show_help

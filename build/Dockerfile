@@ -91,7 +91,7 @@ COPY supervisor/supervisor.d/ /etc/supervisor/conf.d/
 
 # 设置权限
 RUN chown -R www-data:www-data /www \
-    && chmod -R 755 /www \
+    && chmod -R 777 /www \
     && chown -R www-data:www-data /var/log/php-fpm \
     && chown -R www-data:www-data /var/log/nginx
 
