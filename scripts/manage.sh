@@ -36,6 +36,7 @@ show_help() {
     echo "  queue      - 重启所有队列进程"
     echo "  supervisor - 显示supervisor状态"
     echo "  processes  - 显示容器内所有进程"
+    echo "  monitor    - 详细资源监控和分析"
     echo "  help       - 显示帮助"
 }
 
@@ -67,6 +68,23 @@ show_status() {
     echo ""
     echo -e "${BLUE}📈 资源使用:${NC}"
     docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}\t{{.BlockIO}}"
+    
+    # 检查高CPU使用率
+    local cpu_usage=$(docker stats --no-stream --format "{{.CPUPerc}}" my_web 2>/dev/null | sed 's/%//')
+    if [ -n "$cpu_usage" ] && (( $(echo "$cpu_usage > 100" | bc -l 2>/dev/null || echo "0") )); then
+        echo ""
+        echo -e "${RED}⚠️  检测到高CPU使用率 ($cpu_usage%)${NC}"
+        echo -e "${YELLOW}📋 容器内高CPU进程分析:${NC}"
+        echo "----------------------------------------"
+        docker exec my_web ps aux --sort=-%cpu | head -10 2>/dev/null || echo "无法获取进程信息"
+        echo "----------------------------------------"
+        
+        echo ""
+        echo -e "${BLUE}💡 建议检查以下项目:${NC}"
+        echo "  1. 队列进程是否正常 - 使用: $0 supervisor"
+        echo "  2. 应用日志错误信息 - 使用: $0 logs"
+        echo "  3. 重启队列进程 - 使用: $0 queue"
+    fi
 }
 
 # 查看日志
@@ -231,6 +249,84 @@ restart_queues() {
     fi
 }
 
+# 详细资源监控
+resource_monitor() {
+    echo -e "${BLUE}📊 详细资源监控分析 (容器: my_web)${NC}"
+    echo "=============================================="
+    
+    # 1. 容器资源统计
+    echo -e "${GREEN}📈 容器资源使用情况:${NC}"
+    docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}\t{{.BlockIO}}" my_web
+    
+    # 2. 获取CPU使用率进行分析
+    local cpu_usage=$(docker stats --no-stream --format "{{.CPUPerc}}" my_web 2>/dev/null | sed 's/%//')
+    echo ""
+    
+    if [ -n "$cpu_usage" ]; then
+        if (( $(echo "$cpu_usage > 150" | bc -l 2>/dev/null || echo "0") )); then
+            echo -e "${RED}🚨 CPU使用率极高 ($cpu_usage%) - 紧急情况${NC}"
+        elif (( $(echo "$cpu_usage > 100" | bc -l 2>/dev/null || echo "0") )); then
+            echo -e "${YELLOW}⚠️  CPU使用率过高 ($cpu_usage%) - 需要关注${NC}"
+        elif (( $(echo "$cpu_usage > 50" | bc -l 2>/dev/null || echo "0") )); then
+            echo -e "${YELLOW}💡 CPU使用率较高 ($cpu_usage%) - 正常范围内${NC}"
+        else
+            echo -e "${GREEN}✅ CPU使用率正常 ($cpu_usage%)${NC}"
+        fi
+    fi
+    
+    # 3. 容器内进程分析
+    echo ""
+    echo -e "${BLUE}🔍 TOP 10 高CPU进程:${NC}"
+    echo "----------------------------------------"
+    printf "%-10s %-8s %-8s %-50s\n" "USER" "PID" "%CPU" "COMMAND"
+    echo "----------------------------------------"
+    docker exec my_web ps aux --sort=-%cpu 2>/dev/null | head -11 | tail -10 || echo "无法获取进程信息"
+    
+    # 4. 内存使用分析
+    echo ""
+    echo -e "${BLUE}🧠 内存使用详情:${NC}"
+    echo "----------------------------------------"
+    docker exec my_web free -h 2>/dev/null || echo "无法获取内存信息"
+    
+    # 5. 队列进程状态
+    echo ""
+    echo -e "${BLUE}🔄 队列进程状态:${NC}"
+    echo "----------------------------------------"
+    docker exec my_web supervisorctl status 2>/dev/null | grep -E "(default|order_|usdt_)" || echo "无法获取队列进程状态"
+    
+    # 6. 系统负载
+    echo ""
+    echo -e "${BLUE}⚖️  系统负载:${NC}"
+    echo "----------------------------------------"
+    docker exec my_web uptime 2>/dev/null || echo "无法获取系统负载"
+    
+    # 7. 网络连接统计
+    echo ""
+    echo -e "${BLUE}🌐 网络连接统计:${NC}"
+    echo "----------------------------------------"
+    docker exec my_web netstat -an 2>/dev/null | awk '/^tcp/ {count[$6]++} END {for (state in count) print state, count[state]}' | sort -k2 -nr || echo "无法获取网络统计"
+    
+    # 8. 建议和操作
+    echo ""
+    echo -e "${BLUE}💡 性能优化建议:${NC}"
+    echo "========================================="
+    
+    if [ -n "$cpu_usage" ] && (( $(echo "$cpu_usage > 100" | bc -l 2>/dev/null || echo "0") )); then
+        echo -e "${YELLOW}🔧 高CPU使用率解决建议:${NC}"
+        echo "  1. 重启队列进程: $0 queue"
+        echo "  2. 检查应用日志: $0 logs"
+        echo "  3. 重启所有服务: $0 restart"
+        echo "  4. 查看详细进程: $0 processes"
+        echo "  5. 强制重启容器: docker compose restart"
+    else
+        echo -e "${GREEN}✅ 系统运行正常，无需特别操作${NC}"
+    fi
+    
+    echo ""
+    echo -e "${BLUE}🔄 实时监控 (按 Ctrl+C 停止):${NC}"
+    echo "使用命令: docker stats my_web"
+}
+
 # 修复权限
 fix_permissions() {
     echo -e "${BLUE}🔧 修复应用目录权限...${NC}"
@@ -341,6 +437,9 @@ main() {
         processes)
             echo -e "${BLUE}📊 容器内所有进程:${NC}"
             sudo docker exec my_web supervisorctl status 2>/dev/null || echo -e "${RED}❌ 无法连接到容器${NC}"
+            ;;
+        monitor)
+            resource_monitor
             ;;
         help|--help|-h)
             show_help

@@ -16,20 +16,20 @@ mkdir -p "$LOG_DIR"
 echo "========================================" >> "$LOG_FILE"
 echo "$(date): 开始每日结算任务" >> "$LOG_FILE"
 
+# 商户转账
+echo "$(date): 执行汇率更新..." >> "$LOG_FILE"
+if php think update:usdtrate >> "$LOG_FILE" 2>&1; then
+    echo "$(date): 汇率更新完成" >> "$LOG_FILE"
+else
+    echo "$(date): 汇率更新失败" >> "$LOG_FILE"
+fi
+
 # 商户结算
 echo "$(date): 执行商户结算..." >> "$LOG_FILE"
 if php think merchant:settlement >> "$LOG_FILE" 2>&1; then
     echo "$(date): 商户结算完成" >> "$LOG_FILE"
 else
     echo "$(date): 商户结算失败" >> "$LOG_FILE"
-fi
-
-# 商户转账
-echo "$(date): 执行商户转账..." >> "$LOG_FILE"
-if php think merchant:transfer >> "$LOG_FILE" 2>&1; then
-    echo "$(date): 商户转账完成" >> "$LOG_FILE"
-else
-    echo "$(date): 商户转账失败" >> "$LOG_FILE"
 fi
 
 # 渠道结算
